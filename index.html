@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura — Personal Productivity Hub</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti for task completion celebration -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <!-- Inter Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom subtle glassmorphism and scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.6);
+    }
+    .task-item-enter {
+      animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-emerald-500/30 selection:text-emerald-300">
+
+  <!-- Main Container -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Header & Live Status Bar -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div class="flex items-center gap-3">
+        <div class="h-11 w-11 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-slate-950 font-black text-xl">
+          ✦
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-bold tracking-tight text-white" id="greeting-title">Good morning</h1>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Personal Assistant</span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400" id="live-datetime">Loading date & time...</p>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Pill & Focus Status -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800/90 text-sm shadow-sm backdrop-blur">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+          <span class="text-slate-400">Tasks Left:</span>
+          <span id="header-pending-count" class="font-bold text-white">0</span>
+        </div>
+
+        <div class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800/90 text-sm shadow-sm backdrop-blur">
+          <i data-lucide="calendar" class="w-4 h-4 text-sky-400"></i>
+          <span class="text-slate-400">Events Today:</span>
+          <span id="header-events-count" class="font-bold text-sky-400">0</span>
+        </div>
+
+        <button id="btn-quick-quote" title="Get a fresh quote" class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition text-slate-400 hover:text-emerald-400">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Daily Inspiration Banner -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900/60 to-teal-950/30 border border-emerald-500/20 p-4 sm:p-5 flex items-start gap-4 shadow-sm backdrop-blur">
+      <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+        <i data-lucide="quote" class="w-5 h-5"></i>
+      </div>
+      <div class="space-y-0.5">
+        <p id="daily-quote" class="text-sm sm:text-base font-medium text-slate-200 italic">"Small daily improvements over time lead to stunning results."</p>
+        <p id="daily-author" class="text-xs text-emerald-400/90 font-medium">— Robin Sharma</p>
+      </div>
+    </div>
+
+    <!-- Main Grid: 3 Column Layout (Pomodoro/Notes | Tasks Hub | Calendar Hub) -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- LEFT COLUMN: Focus Timer & Scratchpad (3 cols on large) -->
+      <section class="lg:col-span-4 space-y-6">
+
+        <!-- Focus / Pomodoro Hub -->
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/90 p-5 shadow-sm backdrop-blur">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2 font-semibold text-slate-200">
+              <i data-lucide="timer" class="w-4 h-4 text-emerald-400"></i>
+              <span>Focus Timer</span>
+            </div>
+            <div class="flex gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800 text-xs font-medium">
+              <button id="mode-pomodoro" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 transition">Focus</button>
+              <button id="mode-short" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition">Break</button>
+            </div>
+          </div>
+
+          <!-- Timer Display -->
+          <div class="text-center py-4 bg-slate-950/50 rounded-2xl border border-slate-800/70 mb-4">
+            <div id="timer-display" class="text-5xl font-extrabold tracking-tight text-white font-mono">25:00</div>
+            <p id="timer-status-text" class="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">Stay in the zone</p>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex items-center justify-center gap-3">
+            <button id="timer-toggle-btn" class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-sm shadow-md shadow-emerald-500/20 transition active:scale-95">
+              <i data-lucide="play" class="w-4 h-4 fill-current" id="timer-play-icon"></i>
+              <span id="timer-btn-text">Start</span>
+            </button>
+            <button id="timer-reset-btn" class="p-2.5 rounded-xl bg-slate-800/70 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 transition active:scale-95" title="Reset Timer">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Scratchpad -->
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/90 p-5 shadow-sm backdrop-blur flex flex-col h-80">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2 font-semibold text-slate-200">
+              <i data-lucide="file-pen" class="w-4 h-4 text-amber-400"></i>
+              <span>Fleeting Notes</span>
+            </div>
+            <span id="scratch-status" class="text-[11px] text-slate-500 transition">Auto-saved</span>
+          </div>
+          <textarea id="scratchpad" placeholder="Jot down quick thoughts, phone numbers, links, or fleeting ideas here... Auto-saves instantly." class="w-full flex-1 bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none font-mono"></textarea>
+          <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2 px-1">
+            <span id="scratch-chars">0 characters</span>
+            <button id="btn-clear-scratch" class="text-rose-400/70 hover:text-rose-400 transition">Clear note</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- MIDDLE COLUMN: Tasks & Lists Hub (4 cols on large) -->
+      <section class="lg:col-span-4 space-y-4">
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/90 p-5 shadow-sm backdrop-blur">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i>
+              <h2 class="font-bold text-slate-100">Tasks & Lists</h2>
+            </div>
+            <!-- Category Selector Tabs -->
+            <div class="flex gap-1 bg-slate-950/70 p-1 rounded-xl border border-slate-800 text-xs">
+              <button data-category="today" class="cat-pill active-cat px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-medium transition">Today</button>
+              <button data-category="quick" class="cat-pill px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 font-medium transition">Quick</button>
+              <button data-category="goals" class="cat-pill px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 font-medium transition">Goals</button>
+            </div>
+          </div>
+
+          <!-- Add Task Form -->
+          <form id="add-task-form" class="space-y-2.5 mb-4">
+            <div class="relative">
+              <input type="text" id="task-title-input" placeholder="Add a new task..." required class="w-full bg-slate-950/70 border border-slate-800 rounded-xl py-2 pl-3 pr-20 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40">
+              <button type="submit" class="absolute right-1.5 top-1.5 px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add
+              </button>
+            </div>
+            
+            <!-- Metadata line: Priority & Optional Due Date -->
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-500">Priority:</span>
+                <select id="task-priority-input" class="bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-1 text-slate-300 focus:outline-none focus:border-slate-700">
+                  <option value="high">🔥 High</option>
+                  <option value="medium" selected>⚡ Medium</option>
+                  <option value="low">🌱 Low</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-500">Due:</span>
+                <input type="date" id="task-due-input" class="bg-slate-950/80 border border-slate-800 rounded-lg px-2 py-0.5 text-slate-300 text-[11px] focus:outline-none focus:border-slate-700">
+              </div>
+            </div>
+          </form>
+
+          <!-- Status Filters -->
+          <div class="flex items-center justify-between border-b border-slate-800/80 pb-2.5 mb-3 text-xs">
+            <div class="flex items-center gap-2">
+              <button id="filter-all" class="filter-btn text-emerald-400 font-semibold transition">All</button>
+              <span class="text-slate-700">•</span>
+              <button id="filter-active" class="filter-btn text-slate-400 hover:text-slate-200 transition">Active</button>
+              <span class="text-slate-700">•</span>
+              <button id="filter-completed" class="filter-btn text-slate-400 hover:text-slate-200 transition">Completed</button>
+            </div>
+            <button id="btn-clear-completed" class="text-slate-500 hover:text-rose-400 transition text-[11px]">Clear done</button>
+          </div>
+
+          <!-- Tasks List Scrollable -->
+          <div id="tasks-container" class="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+            <!-- Dynamic task items inserted here -->
+          </div>
+
+          <!-- Empty state -->
+          <div id="tasks-empty-state" class="hidden text-center py-8">
+            <i data-lucide="check-circle" class="w-10 h-10 mx-auto text-slate-700 stroke-1 mb-2"></i>
+            <p class="text-sm text-slate-400 font-medium">All clear in this list!</p>
+            <p class="text-xs text-slate-600">Enjoy your focus time or create a new task.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Interactive Calendar (4 cols on large) -->
+      <section class="lg:col-span-4 space-y-4">
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/90 p-5 shadow-sm backdrop-blur">
+          
+          <!-- Month Header & Navigation -->
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 id="calendar-month-year" class="font-bold text-base text-slate-100">Month 2026</h2>
+              <span class="text-[11px] text-slate-500">Click any date to view / add schedules</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button id="cal-prev" class="p-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60 transition">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <button id="cal-today-btn" class="px-2 py-1 text-xs rounded-lg bg-slate-800/70 hover:bg-slate-800 text-slate-300 border border-slate-700/60 transition font-medium">
+                Today
+              </button>
+              <button id="cal-next" class="p-1.5 rounded-lg bg-slate-800/70 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700/60 transition">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Days of Week -->
+          <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-500 mb-1">
+            <span>Su</span>
+            <span>Mo</span>
+            <span>Tu</span>
+            <span>We</span>
+            <span>Th</span>
+            <span>Fr</span>
+            <span>Sa</span>
+          </div>
+
+          <!-- Calendar Grid -->
+          <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-xs">
+            <!-- Day buttons generated via JS -->
+          </div>
+
+          <!-- Selected Day Events Detail Pane -->
+          <div class="mt-4 pt-4 border-t border-slate-800/80">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="selected-date-label">Today's Agenda</span>
+              </span>
+              <button id="btn-show-add-event" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-0.5">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Event
+              </button>
+            </div>
+
+            <!-- Add Event Form (Collapsible) -->
+            <form id="add-event-form" class="hidden mb-3 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <input type="text" id="event-title-input" placeholder="Event / Reminder name..." required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50">
+              <div class="flex items-center gap-2">
+                <input type="time" id="event-time-input" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none flex-1">
+                <select id="event-type-input" class="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none">
+                  <option value="emerald">🟢 Event</option>
+                  <option value="sky">🔵 Meeting</option>
+                  <option value="amber">🟡 Reminder</option>
+                </select>
+                <button type="submit" class="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold transition">
+                  Save
+                </button>
+              </div>
+            </form>
+
+            <!-- Events List for Selected Day -->
+            <div id="day-events-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+              <!-- Dynamically populated events -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Footer -->
+    <footer class="text-center text-xs text-slate-600 py-4 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span>Aura Helper • Private & Local to your browser</span>
+      </div>
+      <div>Press <kbd class="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[10px]">T</kbd> to focus task input</div>
+    </footer>
+
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    /* ==========================================================================
+       1. DATA MANAGEMENT & LOCAL STORAGE
+       ========================================================================== */
+    const STORAGE_KEYS = {
+      TASKS: 'aura_tasks_v1',
+      EVENTS: 'aura_events_v1',
+      SCRATCH: 'aura_scratchpad_v1'
+    };
+
+    // Default Seed Data if fresh user
+    const defaultTasks = [
+      { id: '1', title: 'Plan priorities for the upcoming week', category: 'today', priority: 'high', completed: false, dueDate: '' },
+      { id: '2', title: 'Drink 2L of water and hydrate', category: 'quick', priority: 'medium', completed: true, dueDate: '' },
+      { id: '3', title: 'Complete personal helper dashboard layout', category: 'goals', priority: 'high', completed: false, dueDate: '' }
+    ];
+
+    const todayDateKey = new Date().toISOString().split('T')[0];
+    const defaultEvents = {
+      [todayDateKey]: [
+        { id: 'e1', title: 'Focus & deep work block', time: '10:00', type: 'emerald' },
+        { id: 'e2', title: 'Daily review & wind-down', time: '17:30', type: 'amber' }
+      ]
+    };
+
+    let tasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS)) || defaultTasks;
+    let events = JSON.parse(localStorage.getItem(STORAGE_KEYS.EVENTS)) || defaultEvents;
+    let activeCategory = 'today';
+    let activeFilter = 'all';
+
+    function saveTasks() {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+      renderTasks();
+      updateHeaderStats();
+    }
+
+    function saveEvents() {
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+      renderCalendar();
+      renderSelectedDayEvents();
+      updateHeaderStats();
+    }
+
+    /* ==========================================================================
+       2. LIVE CLOCK, GREETINGS & QUOTES
+       ========================================================================== */
+    const quotes = [
+      { text: "Small daily improvements over time lead to stunning results.", author: "Robin Sharma" },
+      { text: "Focus on being productive instead of busy.", author: "Tim Ferriss" },
+      { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+      { text: "Simplicity boils down to two steps: Identify the essential. Eliminate the rest.", author: "Leo Babauta" },
+      { text: "Action is the foundational key to all success.", author: "Pablo Picasso" },
+      { text: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" }
+    ];
+
+    function updateDateTime() {
+      const now = new Date();
+      const hours = now.getHours();
+      
+      let greeting = 'Good evening';
+      if (hours < 12) greeting = 'Good morning';
+      else if (hours < 17) greeting = 'Good afternoon';
+      
+      document.getElementById('greeting-title').innerText = greeting;
+
+      const options = { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      document.getElementById('live-datetime').innerText = now.toLocaleDateString(undefined, options);
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    function setRandomQuote() {
+      const q = quotes[Math.floor(Math.random() * quotes.length)];
+      document.getElementById('daily-quote').innerText = `"${q.text}"`;
+      document.getElementById('daily-author').innerText = `— ${q.author}`;
+    }
+    document.getElementById('btn-quick-quote').addEventListener('click', setRandomQuote);
+
+    /* ==========================================================================
+       3. POMODORO TIMER
+       ========================================================================== */
+    let timerMode = 'pomodoro'; // 'pomodoro' or 'short'
+    let timerDuration = 25 * 60;
+    let timerRemaining = timerDuration;
+    let timerInterval = null;
+    let isRunning = false;
+
+    const timerDisplay = document.getElementById('timer-display');
+    const timerToggleBtn = document.getElementById('timer-toggle-btn');
+    const timerBtnText = document.getElementById('timer-btn-text');
+    const timerPlayIcon = document.getElementById('timer-play-icon');
+    const timerResetBtn = document.getElementById('timer-reset-btn');
+    const modePomodoroBtn = document.getElementById('mode-pomodoro');
+    const modeShortBtn = document.getElementById('mode-short');
+    const timerStatusText = document.getElementById('timer-status-text');
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function renderTimer() {
+      timerDisplay.innerText = formatTime(timerRemaining);
+    }
+
+    function setTimerMode(mode) {
+      clearInterval(timerInterval);
+      isRunning = false;
+      timerMode = mode;
+      timerDuration = mode === 'pomodoro' ? 25 * 60 : 5 * 60;
+      timerRemaining = timerDuration;
+      
+      if (mode === 'pomodoro') {
+        modePomodoroBtn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-medium transition';
+        modeShortBtn.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition';
+        timerStatusText.innerText = 'Stay in the zone';
+      } else {
+        modeShortBtn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 font-medium transition';
+        modePomodoroBtn.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 transition';
+        timerStatusText.innerText = 'Breathe & Stretch';
+      }
+
+      timerBtnText.innerText = 'Start';
+      timerPlayIcon.setAttribute('data-lucide', 'play');
+      lucide.createIcons();
+      renderTimer();
+    }
+
+    modePomodoroBtn.addEventListener('click', () => setTimerMode('pomodoro'));
+    modeShortBtn.addEventListener('click', () => setTimerMode('short'));
+
+    function toggleTimer() {
+      if (isRunning) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        timerBtnText.innerText = 'Resume';
+        timerPlayIcon.setAttribute('data-lucide', 'play');
+      } else {
+        isRunning = true;
+        timerBtnText.innerText = 'Pause';
+        timerPlayIcon.setAttribute('data-lucide', 'pause');
+        timerInterval = setInterval(() => {
+          if (timerRemaining > 0) {
+            timerRemaining--;
+            renderTimer();
+          } else {
+            clearInterval(timerInterval);
+            isRunning = false;
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 } });
+            timerBtnText.innerText = 'Completed!';
+            timerStatusText.innerText = 'Session Complete! Take a well-deserved rest.';
+          }
+        }, 1000);
+      }
+      lucide.createIcons();
+    }
+
+    timerToggleBtn.addEventListener('click', toggleTimer);
+    timerResetBtn.addEventListener('click', () => setTimerMode(timerMode));
+    renderTimer();
+
+    /* ==========================================================================
+       4. SCRATCHPAD (AUTO-SAVING)
+       ========================================================================== */
+    const scratchpad = document.getElementById('scratchpad');
+    const scratchChars = document.getElementById('scratch-chars');
+    const scratchStatus = document.getElementById('scratch-status');
+    const clearScratchBtn = document.getElementById('btn-clear-scratch');
+
+    scratchpad.value = localStorage.getItem(STORAGE_KEYS.SCRATCH) || '';
+    updateScratchCount();
+
+    function updateScratchCount() {
+      scratchChars.innerText = `${scratchpad.value.length} characters`;
+    }
+
+    let saveScratchTimeout = null;
+    scratchpad.addEventListener('input', () => {
+      scratchStatus.innerText = 'Saving...';
+      scratchStatus.className = 'text-[11px] text-emerald-400 transition';
+      updateScratchCount();
+
+      clearTimeout(saveScratchTimeout);
+      saveScratchTimeout = setTimeout(() => {
+        localStorage.setItem(STORAGE_KEYS.SCRATCH, scratchpad.value);
+        scratchStatus.innerText = 'Auto-saved';
+        scratchStatus.className = 'text-[11px] text-slate-500 transition';
+      }, 500);
+    });
+
+    clearScratchBtn.addEventListener('click', () => {
+      scratchpad.value = '';
+      localStorage.setItem(STORAGE_KEYS.SCRATCH, '');
+      updateScratchCount();
+      scratchStatus.innerText = 'Cleared';
+      setTimeout(() => { scratchStatus.innerText = 'Auto-saved'; }, 1000);
+    });
+
+    /* ==========================================================================
+       5. TASK TRACKER & LISTS
+       ========================================================================== */
+    const tasksContainer = document.getElementById('tasks-container');
+    const tasksEmptyState = document.getElementById('tasks-empty-state');
+    const addTaskForm = document.getElementById('add-task-form');
+    const taskTitleInput = document.getElementById('task-title-input');
+    const taskPriorityInput = document.getElementById('task-priority-input');
+    const taskDueInput = document.getElementById('task-due-input');
+    const catPills = document.querySelectorAll('.cat-pill');
+    const filterButtons = {
+      all: document.getElementById('filter-all'),
+      active: document.getElementById('filter-active'),
+      completed: document.getElementById('filter-completed')
+    };
+
+    catPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        catPills.forEach(p => {
+          p.classList.remove('bg-emerald-500/20', 'text-emerald-400');
+          p.classList.add('text-slate-400');
+        });
+        pill.classList.add('bg-emerald-500/20', 'text-emerald-400');
+        pill.classList.remove('text-slate-400');
+        activeCategory = pill.dataset.category;
+        renderTasks();
+      });
+    });
+
+    Object.entries(filterButtons).forEach(([key, btn]) => {
+      btn.addEventListener('click', () => {
+        Object.values(filterButtons).forEach(b => {
+          b.className = 'filter-btn text-slate-400 hover:text-slate-200 transition';
+        });
+        btn.className = 'filter-btn text-emerald-400 font-semibold transition';
+        activeFilter = key;
+        renderTasks();
+      });
+    });
+
+    addTaskForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = taskTitleInput.value.trim();
+      if (!title) return;
+
+      const newTask = {
+        id: 't_' + Date.now(),
+        title,
+        category: activeCategory,
+        priority: taskPriorityInput.value,
+        dueDate: taskDueInput.value,
+        completed: false
+      };
+
+      tasks.unshift(newTask);
+      saveTasks();
+      taskTitleInput.value = '';
+      taskDueInput.value = '';
+    });
+
+    function toggleTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        task.completed = !task.completed;
+        if (task.completed) {
+          // Play confetti reward burst
+          confetti({
+            particleCount: 40,
+            spread: 50,
+            origin: { y: 0.7 }
+          });
+        }
+        saveTasks();
+      }
+    }
+
+    function deleteTask(id) {
+      tasks = tasks.filter(t => t.id !== id);
+      saveTasks();
+    }
+
+    document.getElementById('btn-clear-completed').addEventListener('click', () => {
+      tasks = tasks.filter(t => !(t.category === activeCategory && t.completed));
+      saveTasks();
+    });
+
+    function renderTasks() {
+      tasksContainer.innerHTML = '';
+
+      let filtered = tasks.filter(t => t.category === activeCategory);
+
+      if (activeFilter === 'active') {
+        filtered = filtered.filter(t => !t.completed);
+      } else if (activeFilter === 'completed') {
+        filtered = filtered.filter(t => t.completed);
+      }
+
+      if (filtered.length === 0) {
+        tasksEmptyState.classList.remove('hidden');
+      } else {
+        tasksEmptyState.classList.add('hidden');
+      }
+
+      filtered.forEach(task => {
+        const item = document.createElement('div');
+        item.className = `task-item-enter group flex items-center justify-between p-3 rounded-xl border transition ${
+          task.completed 
+            ? 'bg-slate-950/40 border-slate-900 opacity-60' 
+            : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+        }`;
+
+        // Priority badge style
+        let badgeColor = 'bg-slate-800 text-slate-300';
+        if (task.priority === 'high') badgeColor = 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+        if (task.priority === 'medium') badgeColor = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        if (task.priority === 'low') badgeColor = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3 flex-1 min-w-0 pr-2">
+            <button class="task-checkbox h-5 w-5 rounded-lg border flex items-center justify-center transition shrink-0 ${
+              task.completed 
+                ? 'bg-emerald-500 border-emerald-500 text-slate-950 font-bold' 
+                : 'border-slate-700 hover:border-emerald-500 text-transparent'
+            }">
+              <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>
+            </button>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium truncate ${task.completed ? 'line-through text-slate-500' : 'text-slate-200'}">
+                ${escapeHtml(task.title)}
+              </p>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider ${badgeColor}">${task.priority}</span>
+                ${task.dueDate ? `<span class="text-[10px] text-slate-500 flex items-center gap-1"><i data-lucide="calendar" class="w-2.5 h-2.5"></i>${task.dueDate}</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <button class="delete-task-btn opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        `;
+
+        item.querySelector('.task-checkbox').addEventListener('click', () => toggleTask(task.id));
+        item.querySelector('.delete-task-btn').addEventListener('click', () => deleteTask(task.id));
+
+        tasksContainer.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* ==========================================================================
+       6. INTERACTIVE CALENDAR & AGENDA
+       ========================================================================== */
+    let currentCalDate = new Date();
+    let selectedDateString = todayDateKey;
+
+    const calMonthYear = document.getElementById('calendar-month-year');
+    const calGrid = document.getElementById('calendar-grid');
+    const calPrev = document.getElementById('cal-prev');
+    const calNext = document.getElementById('cal-next');
+    const calTodayBtn = document.getElementById('cal-today-btn');
+    const selectedDateLabel = document.getElementById('selected-date-label');
+    const dayEventsList = document.getElementById('day-events-list');
+    const btnShowAddEvent = document.getElementById('btn-show-add-event');
+    const addEventForm = document.getElementById('add-event-form');
+    const eventTitleInput = document.getElementById('event-title-input');
+    const eventTimeInput = document.getElementById('event-time-input');
+    const eventTypeInput = document.getElementById('event-type-input');
+
+    function renderCalendar() {
+      const year = currentCalDate.getFullYear();
+      const month = currentCalDate.getMonth();
+
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      calMonthYear.innerText = `${monthNames[month]} ${year}`;
+
+      const firstDayIndex = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      calGrid.innerHTML = '';
+
+      // Previous month ghost days
+      for (let i = firstDayIndex; i > 0; i--) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'h-10 flex items-center justify-center text-slate-700 select-none rounded-lg text-xs';
+        dayDiv.innerText = daysInPrevMonth - i + 1;
+        calGrid.appendChild(dayDiv);
+      }
+
+      // Current month days
+      const today = new Date();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayDiv = document.createElement('button');
+        const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+        const isSelected = dateKey === selectedDateString;
+        const hasEvents = events[dateKey] && events[dateKey].length > 0;
+
+        let classes = 'h-10 relative flex flex-col items-center justify-center rounded-xl font-medium transition text-xs ';
+
+        if (isSelected) {
+          classes += 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20 ';
+        } else if (isToday) {
+          classes += 'bg-slate-800 text-emerald-400 font-bold border border-emerald-500/40 ';
+        } else {
+          classes += 'hover:bg-slate-800/80 text-slate-300 ';
+        }
+
+        dayDiv.className = classes;
+        dayDiv.innerHTML = `<span>${day}</span>`;
+
+        // Event indicator dot
+        if (hasEvents) {
+          const dot = document.createElement('span');
+          dot.className = `w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-slate-950' : 'bg-emerald-400'}`;
+          dayDiv.appendChild(dot);
+        }
+
+        dayDiv.addEventListener('click', () => {
+          selectedDateString = dateKey;
+          renderCalendar();
+          renderSelectedDayEvents();
+        });
+
+        calGrid.appendChild(dayDiv);
+      }
+    }
+
+    calPrev.addEventListener('click', () => {
+      currentCalDate.setMonth(currentCalDate.getMonth() - 1);
+      renderCalendar();
+    });
+
+    calNext.addEventListener('click', () => {
+      currentCalDate.setMonth(currentCalDate.getMonth() + 1);
+      renderCalendar();
+    });
+
+    calTodayBtn.addEventListener('click', () => {
+      currentCalDate = new Date();
+      selectedDateString = todayDateKey;
+      renderCalendar();
+      renderSelectedDayEvents();
+    });
+
+    btnShowAddEvent.addEventListener('click', () => {
+      addEventForm.classList.toggle('hidden');
+      if (!addEventForm.classList.contains('hidden')) {
+        eventTitleInput.focus();
+      }
+    });
+
+    addEventForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = eventTitleInput.value.trim();
+      if (!title) return;
+
+      if (!events[selectedDateString]) {
+        events[selectedDateString] = [];
+      }
+
+      events[selectedDateString].push({
+        id: 'ev_' + Date.now(),
+        title,
+        time: eventTimeInput.value || 'All Day',
+        type: eventTypeInput.value
+      });
+
+      saveEvents();
+      eventTitleInput.value = '';
+      eventTimeInput.value = '';
+      addEventForm.classList.add('hidden');
+    });
+
+    function deleteEvent(dateKey, id) {
+      if (!events[dateKey]) return;
+      events[dateKey] = events[dateKey].filter(e => e.id !== id);
+      if (events[dateKey].length === 0) {
+        delete events[dateKey];
+      }
+      saveEvents();
+    }
+
+    function renderSelectedDayEvents() {
+      const dateParts = selectedDateString.split('-');
+      const d = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+      const dateReadable = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+
+      selectedDateLabel.innerText = `${dateReadable} Agenda`;
+
+      const dayEvents = events[selectedDateString] || [];
+      dayEventsList.innerHTML = '';
+
+      if (dayEvents.length === 0) {
+        dayEventsList.innerHTML = `
+          <div class="text-center py-4 text-slate-500 text-xs">
+            No events scheduled for this day. Click "+ Add Event" to plan ahead!
+          </div>
+        `;
+        return;
+      }
+
+      dayEvents.forEach(evt => {
+        const item = document.createElement('div');
+        
+        let typeBadgeColor = 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400';
+        if (evt.type === 'sky') typeBadgeColor = 'border-sky-500/30 bg-sky-500/10 text-sky-400';
+        if (evt.type === 'amber') typeBadgeColor = 'border-amber-500/30 bg-amber-500/10 text-amber-400';
+
+        item.className = `flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs group`;
+        item.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full ${evt.type === 'sky' ? 'bg-sky-400' : evt.type === 'amber' ? 'bg-amber-400' : 'bg-emerald-400'}"></span>
+            <div class="truncate">
+              <span class="font-medium text-slate-200 block truncate">${escapeHtml(evt.title)}</span>
+              <span class="text-[10px] text-slate-500 font-mono">${evt.time}</span>
+            </div>
+          </div>
+          <button class="del-event-btn opacity-0 group-hover:opacity-100 p-1 rounded hover:text-rose-400 text-slate-600 transition">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+
+        item.querySelector('.del-event-btn').addEventListener('click', () => {
+          deleteEvent(selectedDateString, evt.id);
+        });
+
+        dayEventsList.appendChild(item);
+      });
+
+      lucide.createIcons();
+    }
+
+    /* ==========================================================================
+       7. STATS AND GLOBAL SHORTCUTS
+       ========================================================================== */
+    function updateHeaderStats() {
+      const pendingTodayTasks = tasks.filter(t => t.category === 'today' && !t.completed).length;
+      document.getElementById('header-pending-count').innerText = pendingTodayTasks;
+
+      const todayEventsList = events[todayDateKey] || [];
+      document.getElementById('header-events-count').innerText = todayEventsList.length;
+    }
+
+    // Keyboard shortcut: Press 'T' to focus task input quickly
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 't' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        taskTitleInput.focus();
+      }
+    });
+
+    /* ==========================================================================
+       INITIAL BOOTSTRAP
+       ========================================================================== */
+    renderTasks();
+    renderCalendar();
+    renderSelectedDayEvents();
+    updateHeaderStats();
+    lucide.createIcons();
+  </script>
+</body>
+</html>
